@@ -2,9 +2,13 @@ package com.Security.demo.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -20,38 +24,28 @@ import org.springframework.security.web.SecurityFilterChain;
         @Bean //Insere o objeto FilterChain nesse contexto
         public SecurityFilterChain securityFilterChain (HttpSecurity http) throws Exception{
 
-            http
-                    .authorizeHttpRequests(auth -> auth
-                            .requestMatchers("/api/publico/**").permitAll()
-                            .requestMatchers("/api/privada/**").hasRole("ADMIN")// Qualquer um entra
-                            .anyRequest().authenticated() // Significa que o cara precisa estar logado para acessar a rota
-                    )
-                    .httpBasic(Customizer.withDefaults());   // ativa um login basico do navegador
-            return http.build();
+           return  http
+
+                    .csrf(csrf -> csrf.disable())
+                    .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .authorizeHttpRequests(req -> {
+                        req.requestMatchers(HttpMethod.POST, "/api/login").permitAll();
+
+                        req.requestMatchers("/api/publico").permitAll();
+                        req.requestMatchers("/api/privado").hasRole("ADMIN");
+                    })
+                    .build();
         }
 
-        @Bean
-        public UserDetailsService userDetailsService(PasswordEncoder encoder){
-
-            //Usuario Padrão
-            UserDetails user = User.builder()
-                    .username("Junior")
-                    .password(encoder.encode("senha123")) // Assim ele aplica o hash
-                    .roles("USER") // Usuario normal
-                    .build();
-
-            //Usuario Chefe
-            UserDetails admin = User.builder()
-                    .username("Admin")
-                    .password(encoder.encode("admin123"))
-                    .roles("ADMIN", "USER")
-                    .build();
-
-            return new InMemoryUserDetailsManager(user, admin);
-        }
 
         @Bean
         public PasswordEncoder passwordEncoder(){
             return new BCryptPasswordEncoder();
         }
+
+        @Bean
+        public AuthenticationManager authenticationManager (AuthenticationConfiguration conf){
+            return conf.getAuthenticationManager();
+    }
 }
+
